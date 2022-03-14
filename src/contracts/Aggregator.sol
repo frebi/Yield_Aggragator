@@ -1,4 +1,4 @@
-pragma solidity ^0.5.16;
+pragma solidity ^0.5.0;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
@@ -87,15 +87,15 @@ contract Aggregator{
 
     //Functions
 
-    public deposit(uint256 _amount, uint256 _compAPY, uint256 _aaveAPY){
+    function deposit(uint256 _amount, uint256 _compAPY, uint256 _aaveAPY) public onlyOwner{
 
     }
 
-    public withdraw() public onlyOwner{
+    function withdraw() public onlyOwner{
 
     }
 
-    public rebalance(uint256 _compAPY, _aaveAPY) public onlyOwner{
+    function rebalance(uint256 _compAPY, uint256 _aaveAPY) public onlyOwner{
 
     }
 }
