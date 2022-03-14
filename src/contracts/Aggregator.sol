@@ -2,6 +2,8 @@ pragma solidity ^0.5.0;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
+
+
 //interface for ERC20 DAI contract
 interface DAI{
     function approve(address, uint256) external returns (bool);
@@ -10,6 +12,8 @@ interface DAI{
     function balanceOf(address) external view returns (uint256);
 }
 
+
+
 //Interface for Compound's DAI contract
 interface cDAI{
     function mint(uint256) external returns (uint256);
@@ -17,6 +21,8 @@ interface cDAI{
     function supplyRatePerBlock() external view returns (uint256);
     function balanceOf(address) external view returns (uint256);
 }
+
+
 
 interface aDAI{
     function balanceOf(address) external view returns (uint256);
@@ -27,7 +33,8 @@ interface AaveLendingPool{
     function deposit(
         address asset,
         uint256 amount,
-        address to
+        address onBehalfOf,
+        uint16 referralCode
     ) external;
 
     function withdraw(
@@ -54,6 +61,8 @@ interface AaveLendingPool{
             uint8 id
         );
 }
+
+
 
 contract Aggregator{
 
@@ -85,17 +94,132 @@ contract Aggregator{
     }
 
 
+
+
     //Functions
 
     function deposit(uint256 _amount, uint256 _compAPY, uint256 _aaveAPY) public onlyOwner{
+        
+        require(_amount > 0);
 
+        // Rebalance in the case of a protocol with the higher rate after their initial deposit,
+        // is no longer the higher interest rate during this deposit...
+        if(amountDeposited > 0){
+            rebalance(_compAPY, _aaveAPY);
+        }
+
+        dai.transferFrom(msg.sender, address(this), _amount);
+        amountDeposited = amountDeposited.add(_amount);
+
+        //Compare interest rates
+        if(_compAPY > _aaveAPY){
+            //deposit into Compound
+            require(_depositToCompound(_amount) == 0);
+
+            //update location
+            locationOfFunds = address(cDai);
+        }else{
+            //deposite into Aave
+            _depositToAave(_amount);
+
+            //update location
+            locationOfFunds = address(aaveLendingPool);
+        }
+
+        //Emit Deposit event
+        emit Deposit(msg.sender, _amount, locationOfFunds);
     }
+
+
 
     function withdraw() public onlyOwner{
+        require(amountDeposited > 0);
 
+        //Determine where the user funds are stored
+        if(locationOfFunds == address(cDai)){
+            require(_withdrawFromCompound() == 0);
+        }else{
+            _withdrawFromAave();
+        }
+
+        //Once we have the funds, transfer back to owner
+        uint256 balance = dai.balanceOf(address(this));
+        dai.transfer(msg.sender, balance);
+
+        emit Withdraw(msg.sender, amountDeposited, locationOfFunds);
+
+        //Reset user balance
+        amountDeposited = 0;
     }
 
-    function rebalance(uint256 _compAPY, uint256 _aaveAPY) public onlyOwner{
 
+
+    function rebalance(uint256 _compAPY, uint256 _aaveAPY) public onlyOwner{
+        require(amountDeposited > 0);
+
+        uint256 balance;
+
+        //Compare interest rates
+        if((_compAPY > _aaveAPY) && (locationOfFunds != address(cDai))){
+            _withdrawFromAave();
+            balance = dai.balanceOf(address(this));
+            _depositToCompound(balance);
+            
+            //Update location
+            locationOfFunds = address(cDai);
+
+            emit Rebalance(msg.sender, amountDeposited, locationOfFunds);
+        }else if ((_aaveAPY > _compAPY) && (locationOfFunds != address(aaveLendingPool))){
+            _withdrawFromCompound();
+            balance = dai.balanceOf(address(this));
+            _depositToAave(balance);
+
+            //Update location
+            locationOfFunds = address(aaveLendingPool);
+
+            emit Rebalance(msg.sender, amountDeposited, locationOfFunds);
+        }
+    }
+
+
+
+    //----- internal functions -----
+
+    function _depositToCompound(uint256 _amount) internal returns (uint256){
+        require(dai.approve(address(cDai), _amount));
+
+        uint256 result = cDai.mint(_amount);
+        return result;
+    }
+
+    function _depositToAave(uint256 _amount) internal returns (uint256){
+        require(dai.approve(address(aaveLendingPool), _amount));
+        aaveLendingPool.deposit(address(dai), _amount, address(this), 0);
+    }
+
+    function _withdrawFromCompound() internal returns (uint256){
+        uint256 balance = cDai.balanceOf(address(this));
+        uint256 result = cDai.redeem(balance);
+        return result;
+    }
+
+    function _withdrawFromAave() internal returns (uint256){
+        uint256 balance = aDai.balanceOf(address(this));
+        aaveLendingPool.withdraw(address(dai), balance, address(this));
+    }
+
+    //-------------------------------
+
+
+    function balanceOfContract() public view returns (uint256) {
+        if (locationOfFunds == address(cDai)) {
+            return cDai.balanceOf(address(this));
+        } else {
+            return aDai.balanceOf(address(this));
+        }
+    }
+
+    function balanceWhere() public view returns (address) {
+        return locationOfFunds;
     }
 }
