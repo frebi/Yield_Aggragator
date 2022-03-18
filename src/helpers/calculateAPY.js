@@ -8,6 +8,7 @@ export const getCompoundAPY = async (cDAI_contract) => {
     const daysPerYear = 365
 
     const supplyRatePerBlock = await cDAI_contract.methods.supplyRatePerBlock().call()
+    //toBN --> will safely convert any given value into a BN.js instance for handling big numbers
     const compAPY = Web3.utils.toBN(((((Math.pow((supplyRatePerBlock / ethMantissa * blocksPerDay) + 1, daysPerYear))) - 1) * 100) * ethMantissa)
 
     return compAPY
