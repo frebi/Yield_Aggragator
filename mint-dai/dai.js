@@ -25,7 +25,7 @@ web3.eth.getAccounts().then((ganacheAccounts) => {
         });
 
 }).then((result) => {
-    console.log(accounts[0]);
+    //console.log(accounts[0]);
     console.log('DAI mint success');
     return daiContract.methods.balanceOf(accounts[0]).call();
 }).then((balanceOf) => {

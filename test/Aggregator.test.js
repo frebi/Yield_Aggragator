@@ -33,4 +33,73 @@ contract('Aggregator', ([deployer, user2]) =>{
             result.should.equal("Yield Aggregator")
         })
     })
+
+    describe('exchange rates', async () => {
+
+        it('compound rate', async () => {
+            const result = await getAPY.getCompoundAPY(cDAI_contract)
+            console.log(result.toString())
+            result.should.not.equal(0)
+        })
+
+        it('aave rate', async () => {
+            const result = await getAPY.getAaveAPY(aaveLendingPool_contract)
+            console.log(result.toString())
+            result.should.not.equal(0)
+        })
+    })
+
+    describe('deposits', async () => {
+
+        let amount = 10
+        let amountInWei = web3.utils.toWei(amount.toString(), 'ether')
+        let compAPY, aaveAPY
+        let result
+
+        describe('success', async () => {
+            
+            beforeEach(async () => {
+
+                compAPY = await getAPY.getCompoundAPY(cDAI_contract)
+                aaveAPY = await getAPY.getAaveAPY(aaveLendingPool_contract)
+
+                //approve
+                await daiContract.methods.approve(aggregator.address, amountInWei).send({from: deployer})
+
+                //deposit
+                result = await aggregator.deposit(amountInWei, compAPY, aaveAPY, {from: deployer})
+            })
+
+            it('tracks the dai amount', async () => {
+                //check dai balance in smart contract
+                let balance
+                balance = await aggregator.amountDeposited.call()
+                balance.toString().should.equal(amountInWei.toString())
+            })
+
+            it('tracks where dai is stored', async () => {
+                result = await aggregator.balanceWhere.call()
+                console.log(result)
+            })
+
+            it('emits deposit event', async () => {
+                const log = result.logs[0]
+                log.event.should.equal('Deposit')
+            })
+        })
+
+        describe('failure', async () => {
+            /*
+            it('fails when transfer is not approved', async () => {
+                await aggregator.deposit(amountInWei, compAPY, aaveAPY, {from: deployer}).should.be.rejectedWith(EVM_REVERT)
+            })
+
+            it('fails when amount is 0', async () => {
+                await aggregator.deposit(0, compAPY, aaveAPY, {from: deployer}).should.be.rejectedWith(EVM_REVERT)
+            })
+            */
+        })
+
+    })
+    
 })
