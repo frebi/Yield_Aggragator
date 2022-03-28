@@ -107,7 +107,7 @@ contract('Aggregator', ([deployer, user2]) =>{
     describe('withdraws', async () => {
 
         let amount = 10
-        let amountInWei = web3.utils.toWei(amount.toString, 'ether')
+        let amountInWei = web3.utils.toWei(amount.toString(), 'ether')
         let compAPY, aaveAPY
         let result
 
@@ -115,23 +115,23 @@ contract('Aggregator', ([deployer, user2]) =>{
 
             beforeEach(async () => {
                 compAPY = await getAPY.getCompoundAPY(cDAI_contract)
-                aaveAPY = await aaveAPY.getAaveAPY(aaveLendingPool_contract)
+                aaveAPY = await getAPY.getAaveAPY(aaveLendingPool_contract)
 
                 await daiContract.methods.approve(aggregator.address, amountInWei).send({from: deployer})
 
                 await aggregator.deposit(amountInWei, compAPY, aaveAPY, {from: deployer})
+            })
 
-                it('emits withdraw event', async () => {
-                    result = await aggregator.withdraw({from: deployer})
-                    const log = result.log[0]
-                    log.event.should.equal('Withdraw')
-                })
+            it('emits withdraw event', async () => {
+                result = await aggregator.withdraw({from: deployer})
+                const log = result.logs[0]
+                log.event.should.equal('Withdraw')
+            })
 
-                it('updates the user contract balance', async () => {
-                    await aggregator.withdraw({from: deployer})
-                    result = aggregator.amountDeposited.call()
-                    result.toString().should.equal("0")
-                })
+            it('updates the user contract balance', async () => {
+                await aggregator.withdraw({from: deployer})
+                result = await aggregator.amountDeposited.call()
+                result.toString().should.equal("0")
             })
         })
 
@@ -146,28 +146,28 @@ contract('Aggregator', ([deployer, user2]) =>{
             })
             */
         })
+    })
 
-        describe('rebalance', async () => {
+    describe('rebalance', async () => {
 
-            let compAPY, aaveAPY
-    
-            describe('failure', async () => {
-                beforeEach(async () => {
-                    // Fetch Compound APY
-                    compAPY = await getAPY.getCompoundAPY(cDAI_contract)
-    
-                    // Fetch Aave APY
-                    aaveAPY = await getAPY.getAaveAPY(aaveLendingPool_contract)
-                })
-                /*
-                it('fails if user has no balance', async () => {
-                    await aggregator.rebalance(compAPY, aaveAPY, { from: deployer }).should.be.rejectedWith(EVM_REVERT)
-                })
-                */
-    
+        let compAPY, aaveAPY
+
+        describe('failure', async () => {
+            beforeEach(async () => {
+                // Fetch Compound APY
+                compAPY = await getAPY.getCompoundAPY(cDAI_contract)
+
+                // Fetch Aave APY
+                aaveAPY = await getAPY.getAaveAPY(aaveLendingPool_contract)
             })
-    
+            /*
+            it('fails if user has no balance', async () => {
+                await aggregator.rebalance(compAPY, aaveAPY, { from: deployer }).should.be.rejectedWith(EVM_REVERT)
+            })
+            */
+
         })
+
     })
     
 })
